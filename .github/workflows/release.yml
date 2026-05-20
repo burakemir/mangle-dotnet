@@ -10,6 +10,14 @@ on:
 permissions:
   contents: read
 
+# Run JavaScript actions on Node 24 ahead of the June 2026 forced
+# switch (silences the Node-20 deprecation warning). The durable fix
+# is bumping actions/checkout, actions/upload-artifact,
+# actions/download-artifact, actions/setup-dotnet from @v4 to their
+# Node-24 majors (@v5) once those tags are confirmed.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   # Build the mangle-ffi cdylib for every RID. Each entry uploads its
   # native lib as an artifact named runtime-<rid>.
