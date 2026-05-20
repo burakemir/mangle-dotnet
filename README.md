@@ -1,10 +1,19 @@
 # Mangle for .NET
 
-.NET bindings for [Mangle](https://codeberg.org/TauCeti/mangle-rs), a
-Datalog-family logic-programming engine. The Rust core is exposed
-through a stable C ABI (`mangle-ffi`); this repo generates the C#
-P/Invoke layer and ships a NuGet package with the native library
-bundled for every supported platform.
+.NET bindings for [Mangle](https://mangle.readthedocs.io/en/latest/), a
+language for deductive database programming based on Datalog. You write
+**rules** and **facts**; the engine derives all logical consequences,
+including recursive ones such as transitive reachability. See the
+[Mangle documentation](https://mangle.readthedocs.io/en/latest/) for the
+language reference and the [Rust engine
+repo](https://codeberg.org/TauCeti/mangle-rs) for the core
+implementation.
+
+This package exposes that Rust core through a stable C ABI
+(`mangle-ffi`); it generates the C# P/Invoke layer and ships a NuGet
+package with the native library bundled for every supported platform.
+The public API is CLS-compliant, so it works from any .NET language —
+C#, F#, and Visual Basic (examples below).
 
 ## Status
 
@@ -108,7 +117,13 @@ dotnet add package Mangle --source ./nupkg
 
 That exercises the `runtimes/` auto-copy path with no glob.
 
-## Example
+## Examples
+
+The same package works from any .NET language. Each example below loads
+two `edge` facts plus recursive `reachable` rules, then queries which
+nodes are reachable from `1`.
+
+### C#
 
 ```csharp
 using Mangle;
@@ -124,6 +139,41 @@ foreach (var row in engine.Query("reachable(1, Y)"))
     Console.WriteLine(row[1].AsInt64());   // 2, 3
 
 Console.WriteLine(engine.SchemaSnapshotJson());
+```
+
+### F#
+
+```fsharp
+open Mangle
+
+use engine = new MangleEngine()
+engine.LoadRules("edge(1, 2). edge(2, 3). \
+                  reachable(X, Y) :- edge(X, Y). \
+                  reachable(X, Z) :- edge(X, Y), reachable(Y, Z).")
+
+for row in engine.Query("reachable(1, Y)") do
+    printfn "%d" (row.[1].AsInt64())   // 2, 3
+```
+
+### Visual Basic
+
+```vb
+Imports Mangle
+
+Module Program
+    Sub Main()
+        Using engine As New MangleEngine()
+            engine.LoadRules(
+                "edge(1, 2). edge(2, 3).
+                 reachable(X, Y) :- edge(X, Y).
+                 reachable(X, Z) :- edge(X, Y), reachable(Y, Z).")
+
+            For Each row In engine.Query("reachable(1, Y)")
+                Console.WriteLine(row(1).AsInt64())   ' 2, 3
+            Next
+        End Using
+    End Sub
+End Module
 ```
 
 ## What's wrapped
