@@ -50,7 +50,13 @@ matrix in `release.yml` to add more).
    `cargo build -p mangle-dotnet-bindings` / `-p mangle-ffi` to resolve
    from the top level, or rely on the explicit `--manifest-path` the
    scripts/CI already use.
-3. Add a `NUGET_API_KEY` repository secret for publishing.
+3. Publishing uses nuget.org **trusted publishing** (OIDC) — no
+   long-lived API key. Configure a trusted-publisher policy on
+   nuget.org for this repo + the `build + pack` workflow, and set a
+   repository **variable** `NUGET_USER` to your nuget.org account name
+   (the account that owns the policy; not a secret). The `pack` job
+   mints a short-lived key per run via OIDC; a `v*` tag triggers the
+   push.
 
 ## Regenerate the C# bindings
 
