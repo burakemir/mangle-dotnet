@@ -47,8 +47,11 @@ jobs:
             rust_target: aarch64-apple-darwin
             out_dir: aarch64-apple-darwin
             lib: libmangle_ffi.dylib
+          # Cross-built from the Apple-Silicon runner: the macOS SDK +
+          # clang target x86_64 out of the box, so we avoid the scarce
+          # (and being-retired) macos-13 Intel runners entirely.
           - rid: osx-x64
-            os: macos-13
+            os: macos-14
             tool: cargo
             rust_target: x86_64-apple-darwin
             out_dir: x86_64-apple-darwin
@@ -110,7 +113,11 @@ jobs:
         with:
           submodules: recursive
       - run: rustup update stable && rustup default stable
-      - run: cargo build -p mangle-dotnet-bindings
+      # No workspace Cargo.toml at the repo root, so point cargo at the
+      # bindings crate's manifest directly. Its build.rs derives the
+      # repo root from CARGO_MANIFEST_DIR, so the codegen output path is
+      # correct regardless of cwd.
+      - run: cargo build --manifest-path crates/mangle-dotnet-bindings/Cargo.toml
       - name: NativeMethods.g.cs is up to date
         run: git diff --exit-code src/Mangle/NativeMethods.g.cs
 
