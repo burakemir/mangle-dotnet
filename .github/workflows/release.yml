@@ -135,13 +135,6 @@ jobs:
     name: dotnet pack
     needs: [natives, bindings-fresh]
     runs-on: ubuntu-latest
-    # Least privilege: only this job needs to mint the OIDC token used
-    # for nuget.org trusted publishing. id-token:write is required for
-    # the OIDC exchange; the other jobs keep the workflow-level
-    # contents:read.
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -177,27 +170,43 @@ jobs:
         with:
           name: nupkg
           path: nupkg/*.nupkg
-      # Trusted publishing (OIDC) — no long-lived API key. The
-      # NuGet/login action exchanges this run's OIDC token for a
-      # short-lived API key, gated by the trusted-publisher policy
-      # configured on nuget.org for this repo + workflow. Set the
-      # repository variable NUGET_USER to your nuget.org account name
-      # (it's the account that owns the policy; not a secret).
-      #
-      # NOTE: verify the action ref (@v1) and input/output names
-      # against current nuget.org trusted-publishing docs — this
-      # feature is newer than the assistant's knowledge cutoff. The
-      # id-token:write permission and the OIDC concept are stable; the
-      # exact `user:` input and `NUGET_API_KEY` output name are the
-      # bits to confirm.
-      - name: NuGet trusted-publishing login (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+
+  # Publish to nuget.org via trusted publishing (OIDC) — no long-lived
+  # API key. Gated to v* tags and bound to the "production" GitHub
+  # Environment. The environment is where NUGET_USER lives (env-scoped
+  # vars only resolve in a job that declares `environment:`), and it's
+  # where any deployment protection rules attach. Keeping publish in
+  # its own job means those rules gate only the publish — not the
+  # build/pack on branches and PRs.
+  #
+  # NOTE: verify the NuGet/login action ref (@v1) and its `user` input
+  # / `NUGET_API_KEY` output against current nuget.org
+  # trusted-publishing docs — newer than the assistant's knowledge
+  # cutoff. id-token:write and the OIDC mechanism itself are stable.
+  publish:
+    name: publish to nuget.org
+    needs: pack
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Download nupkg
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg
+      - name: Trusted-publishing login
         id: nuget-login
         uses: NuGet/login@v1
         with:
           user: ${{ vars.NUGET_USER }}
-      - name: Push to nuget.org (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Push
         run: |
           dotnet nuget push "nupkg/*.nupkg" \
             --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
