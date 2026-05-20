@@ -10,14 +10,6 @@ on:
 permissions:
   contents: read
 
-# Run JavaScript actions on Node 24 ahead of the June 2026 forced
-# switch (silences the Node-20 deprecation warning). The durable fix
-# is bumping actions/checkout, actions/upload-artifact,
-# actions/download-artifact, actions/setup-dotnet from @v4 to their
-# Node-24 majors (@v5) once those tags are confirmed.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
   # Build the mangle-ffi cdylib for every RID. Each entry uploads its
   # native lib as an artifact named runtime-<rid>.
@@ -72,7 +64,7 @@ jobs:
             lib: mangle_ffi.dll
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: Update Rust + add target
@@ -107,7 +99,7 @@ jobs:
           mkdir -p staging/${{ matrix.rid }}
           cp "third-party/mangle-rs/target/${{ matrix.out_dir }}/release/${{ matrix.lib }}" \
              "staging/${{ matrix.rid }}/${{ matrix.lib }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: runtime-${{ matrix.rid }}
           path: staging/${{ matrix.rid }}/
@@ -117,7 +109,7 @@ jobs:
     name: bindings up to date
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - run: rustup update stable && rustup default stable
@@ -136,12 +128,12 @@ jobs:
     needs: [natives, bindings-fresh]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
       - name: Download all native artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts
       - name: Arrange runtimes/<rid>/native/
@@ -166,7 +158,7 @@ jobs:
           else
             dotnet pack src/Mangle/Mangle.csproj -c Release -o nupkg
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: nupkg
           path: nupkg/*.nupkg
@@ -193,11 +185,11 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
       - name: Download nupkg
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: nupkg
           path: nupkg
