@@ -134,12 +134,17 @@ public sealed unsafe class MangleEngine : IDisposable
     }
 
     /// <summary>Facts overview as JSON (per-relation count + sample).</summary>
-    public string FactsSnapshotJson(uint perRelationLimit = 16)
+    public string FactsSnapshotJson(int perRelationLimit = 16)
     {
+        if (perRelationLimit < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(perRelationLimit), "must be non-negative");
+        }
         EnsureRules();
         MangleBuffer buf = default;
         MangleException.ThrowIfError(
-            NativeMethods.mangle_facts_snapshot(_handle.Ptr, perRelationLimit, &buf));
+            NativeMethods.mangle_facts_snapshot(_handle.Ptr, (uint)perRelationLimit, &buf));
         return MangleBufferOps.ReadAndFree(&buf);
     }
 
