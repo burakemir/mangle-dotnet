@@ -1,0 +1,3 @@
+[submodule "third-party/mangle-rs"]
+	path = third-party/mangle-rs
+	url = https://codeberg.org/TauCeti/mangle-rs
