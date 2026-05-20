@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The Mangle library targets net8.0 (LTS). If only a newer
+         runtime is installed (e.g. a net11 preview), roll forward so
+         `dotnet run` works without installing the net8 runtime. -->
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Mangle/Mangle.csproj" />
+  </ItemGroup>
+
+  <!-- DEV-ONLY: copy the host RID's native lib next to the sample exe
+       so DllImport finds it under a project reference. Real consumers
+       get the package via NuGet, where .NET resolves
+       runtimes/<rid>/native/ automatically and this is unnecessary.
+       The glob copies only whatever RIDs have been built locally;
+       with a single host RID present there's no filename collision. -->
+  <ItemGroup>
+    <None Include="../../src/Mangle/runtimes/**/native/*"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

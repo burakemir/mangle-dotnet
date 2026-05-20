@@ -1,0 +1,16 @@
+# Rust
+/target
+**/target
+
+# .NET
+**/bin/
+**/obj/
+*.user
+
+# Built native libs land here (CI rebuilds; not committed). The
+# generated NativeMethods.g.cs IS committed and reviewable.
+src/Mangle/runtimes/
+
+# NuGet output
+nupkg/
+*.nupkg

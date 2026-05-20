@@ -1,0 +1,16 @@
+[package]
+name = "mangle-dotnet-bindings"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Generates the C# P/Invoke layer for Mangle from the mangle-ffi C ABI (csbindgen)."
+
+# This crate produces no library/binary artifact of interest — its job
+# is to run csbindgen at build time and emit NativeMethods.g.cs into
+# the C# project. Run `cargo build -p mangle-dotnet-bindings` to
+# regenerate. See build.rs.
+[lib]
+path = "src/lib.rs"
+
+[build-dependencies]
+csbindgen = "1.9"

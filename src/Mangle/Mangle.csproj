@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- csbindgen-generated P/Invoke may use raw pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- NuGet package metadata. Single "fat" package: managed wrappers
+       + every RID's native cdylib bundled under runtimes/. -->
+  <PropertyGroup>
+    <PackageId>Mangle</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Burak Emir</Authors>
+    <Description>.NET bindings for Mangle, a Datalog-family logic-programming engine (Rust core via a C ABI).</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://codeberg.org/TauCeti/mangle-rs</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/TauCeti/mangle-dotnet</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>mangle;datalog;logic-programming;rules</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <!-- Bundle the native cdylibs. CI's release matrix cross-builds
+       mangle-ffi for each RID and drops the artifacts into
+       runtimes/<rid>/native/ before `dotnet pack`. .NET's package
+       resolution copies the matching RID's lib into a consumer's
+       output automatically. The wildcard tolerates a partial set
+       during local dev (build-natives.sh populates the host RID
+       only). -->
+  <ItemGroup>
+    <None Include="runtimes/**/native/*"
+          Pack="true"
+          PackagePath="runtimes/" />
+  </ItemGroup>
+
+</Project>

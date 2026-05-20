@@ -1,0 +1,154 @@
+name: build + pack
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Build the mangle-ffi cdylib for every RID. Each entry uploads its
+  # native lib as an artifact named runtime-<rid>.
+  #
+  # macOS/Windows build natively on their own runner. The two Linux
+  # arches build from a single x86_64 runner via cargo-zigbuild: zig
+  # cross-links and lets us pin glibc to 2.17 (manylinux2014 baseline)
+  # so the .so runs on older distros instead of requiring whatever
+  # glibc the runner happens to ship. macOS sets a deployment-target
+  # floor for the same reason.
+  natives:
+    name: native (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # rust_target = triple passed to the build tool (zigbuild
+          # accepts a .<glibc> suffix); out_dir = cargo's output subdir
+          # (the plain triple, no glibc suffix).
+          - rid: linux-x64
+            os: ubuntu-latest
+            tool: zigbuild
+            rust_target: x86_64-unknown-linux-gnu.2.17
+            out_dir: x86_64-unknown-linux-gnu
+            lib: libmangle_ffi.so
+          - rid: linux-arm64
+            os: ubuntu-latest
+            tool: zigbuild
+            rust_target: aarch64-unknown-linux-gnu.2.17
+            out_dir: aarch64-unknown-linux-gnu
+            lib: libmangle_ffi.so
+          - rid: osx-arm64
+            os: macos-14
+            tool: cargo
+            rust_target: aarch64-apple-darwin
+            out_dir: aarch64-apple-darwin
+            lib: libmangle_ffi.dylib
+          - rid: osx-x64
+            os: macos-13
+            tool: cargo
+            rust_target: x86_64-apple-darwin
+            out_dir: x86_64-apple-darwin
+            lib: libmangle_ffi.dylib
+          - rid: win-x64
+            os: windows-latest
+            tool: cargo
+            rust_target: x86_64-pc-windows-msvc
+            out_dir: x86_64-pc-windows-msvc
+            lib: mangle_ffi.dll
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Update Rust + add target
+        run: |
+          rustup update stable && rustup default stable
+          rustup target add ${{ matrix.out_dir }}
+      - name: Install zig + cargo-zigbuild
+        if: matrix.tool == 'zigbuild'
+        run: |
+          python3 -m pip install --user ziglang
+          cargo install --locked cargo-zigbuild
+      - name: Build (cargo, native)
+        if: matrix.tool == 'cargo'
+        shell: bash
+        env:
+          # macOS compatibility floor (ignored on Windows).
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: |
+          cargo build --release -p mangle-ffi \
+            --target ${{ matrix.rust_target }} \
+            --manifest-path third-party/mangle-rs/crates/mangle-ffi/Cargo.toml
+      - name: Build (zigbuild, pinned glibc 2.17)
+        if: matrix.tool == 'zigbuild'
+        shell: bash
+        run: |
+          cargo zigbuild --release -p mangle-ffi \
+            --target ${{ matrix.rust_target }} \
+            --manifest-path third-party/mangle-rs/crates/mangle-ffi/Cargo.toml
+      - name: Stage native lib
+        shell: bash
+        run: |
+          mkdir -p staging/${{ matrix.rid }}
+          cp "third-party/mangle-rs/target/${{ matrix.out_dir }}/release/${{ matrix.lib }}" \
+             "staging/${{ matrix.rid }}/${{ matrix.lib }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.rid }}
+          path: staging/${{ matrix.rid }}/
+
+  # Regenerate the C# P/Invoke from the FFI and fail if it drifted.
+  bindings-fresh:
+    name: bindings up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - run: rustup update stable && rustup default stable
+      - run: cargo build -p mangle-dotnet-bindings
+      - name: NativeMethods.g.cs is up to date
+        run: git diff --exit-code src/Mangle/NativeMethods.g.cs
+
+  # Collect every RID's native into runtimes/, then build + pack +
+  # (on a v* tag) push to nuget.org.
+  pack:
+    name: dotnet pack
+    needs: [natives, bindings-fresh]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Download all native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Arrange runtimes/<rid>/native/
+        run: |
+          for d in artifacts/runtime-*; do
+            rid="${d#artifacts/runtime-}"
+            mkdir -p "src/Mangle/runtimes/$rid/native"
+            cp "$d"/* "src/Mangle/runtimes/$rid/native/"
+          done
+          find src/Mangle/runtimes -type f
+      - name: Pack
+        run: dotnet pack src/Mangle/Mangle.csproj -c Release -o nupkg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg/*.nupkg
+      - name: Push to nuget.org (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push "nupkg/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
