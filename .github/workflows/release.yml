@@ -159,8 +159,20 @@ jobs:
             cp "$d"/* "src/Mangle/runtimes/$rid/native/"
           done
           find src/Mangle/runtimes -type f
+      # On a v* tag the tag is the single source of truth for the
+      # package version (strip the leading "v"); a SemVer suffix like
+      # -rc.1 makes it a nuget.org prerelease. On branch/PR builds we
+      # fall back to the csproj <Version> so pack still works.
       - name: Pack
-        run: dotnet pack src/Mangle/Mangle.csproj -c Release -o nupkg
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            echo "Packing tagged version: $version"
+            dotnet pack src/Mangle/Mangle.csproj -c Release -o nupkg -p:Version="$version"
+          else
+            dotnet pack src/Mangle/Mangle.csproj -c Release -o nupkg
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: nupkg
