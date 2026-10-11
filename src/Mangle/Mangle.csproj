@@ -14,7 +14,7 @@
        + every RID's native cdylib bundled under runtimes/. -->
   <PropertyGroup>
     <PackageId>Mangle</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>Burak Emir</Authors>
     <Description>.NET bindings for Mangle, a Datalog-family logic-programming engine (Rust core via a C ABI).</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
