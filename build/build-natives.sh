@@ -28,7 +28,15 @@ esac
 echo "Building mangle-ffi (release) for host $host -> RID $rid"
 cargo build --release -p mangle-ffi --manifest-path "$ffi_manifest"
 
-target_dir="$repo_root/third-party/mangle-rs/target/release"
+# Resolve the target dir cargo actually used (honors $CARGO_TARGET_DIR,
+# which may redirect artifacts away from <manifest-dir>/target).
+target_dir="$(cargo metadata --format-version 1 --manifest-path "$ffi_manifest" \
+  | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')/release"
+if [ ! -f "$target_dir/$lib" ]; then
+  echo "error: $target_dir/$lib not found after build" >&2
+  exit 1
+fi
+
 dest="$repo_root/src/Mangle/runtimes/$rid/native"
 mkdir -p "$dest"
 cp "$target_dir/$lib" "$dest/$lib"
